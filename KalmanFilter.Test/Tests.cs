@@ -13,31 +13,44 @@ namespace KalmanFilter.Test
 
         [Test]
         public void UnscentedKalman_GetWeightedCovariance_CovarianceCorrectlyWeighted() {
+            Matrix x = new Matrix(9, 4);
+            x.SetRow(0, new double[] { 0, 0, 0, 0 });
+            x.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
+            x.SetRow(2, new double[] { 0, 0.2236068, 0, 0 });
+            x.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
+            x.SetRow(4, new double[] { 0, 0, 0, 0.2236068 });
+            x.SetRow(5, new double[] { 0.2236068, 0, 0, 0 });
+            x.SetRow(6, new double[] { 0, 0.2236068, 0, 0 });
+            x.SetRow(7, new double[] { 0, 0, 0.2236068, 0 });
+            x.SetRow(8, new double[] { 0, 0, 0, 0.2236068 });
+
             Matrix y = new Matrix(9, 4);
             y.SetRow(0, new double[] { 0, 0, 0, 0 });
             y.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            y.SetRow(2, new double[] { 0, 0.2236068, 0, 0 });
+            y.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
             y.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            y.SetRow(4, new double[] { 0, 0, 0, 0.2236068 });
-            y.SetRow(5, new double[] { 0.2236068, 0, 0, 0 });
-            y.SetRow(6, new double[] { 0, 0.2236068, 0, 0 });
-            y.SetRow(7, new double[] { 0, 0, 0.2236068, 0 });
-            y.SetRow(8, new double[] { 0, 0, 0, 0.2236068 });
+            y.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
+            y.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
+            y.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
+            y.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
+            y.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
 
-            Matrix weightedSigmas = new Matrix(9, 4);
-            weightedSigmas.SetRow(0, new double[] { 0, 0, 0, 0 });
-            weightedSigmas.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            weightedSigmas.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
-            weightedSigmas.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            weightedSigmas.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
-            weightedSigmas.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
-            weightedSigmas.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
-            weightedSigmas.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
-            weightedSigmas.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
+            Matrix Q = new Matrix(4, 4);
+            Q.SetRow(0, new double[] { 0.005, 0.01, 0, 0 });
+            Q.SetRow(1, new double[] { 0.01, 0.02, 0, 0 });
+            Q.SetRow(2, new double[] { 0, 0, 0.005, 0.01 });
+            Q.SetRow(3, new double[] { 0, 0, 0.01, 0.02 });
 
             var xBar = new List<double>() { 0, 0, 0, 0 };
             var Wc = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
-            Matrix Q = 
+
+            UnscentedKalman UKF = new UnscentedKalman();
+            Matrix Pbar = UKF.GetWeightedCovariance(y, xBar, Wc, Q);
+
+            Assert.AreEqual(new double[] { 2, 1, 0, 0 }, Pbar.GetRow(0).Select(p => Math.Round(p, 3)));
+            Assert.AreEqual(new double[] { 1, 1, 0, 0 }, Pbar.GetRow(1).Select(p => Math.Round(p, 3)));
+            Assert.AreEqual(new double[] { 0, 0, 2, 1 }, Pbar.GetRow(2).Select(p => Math.Round(p, 3)));
+            Assert.AreEqual(new double[] { 0, 0, 1, 1 }, Pbar.GetRow(3).Select(p => Math.Round(p, 3)));
             /*
              Q
             [[0.005 0.01  0.    0.   ]
@@ -137,7 +150,7 @@ namespace KalmanFilter.Test
         }
 
         [Test]
-        public void UnscentedKalman_TransitionSigmas_SigmasCorrectlyTransited() {
+        public void UnscentedKalman_TransitionSigmas_SigmasCorrectlyTransformed() {
             UnscentedKalman UKF = new UnscentedKalman();
 
             Matrix F = new Matrix(4, 4);
@@ -176,27 +189,6 @@ namespace KalmanFilter.Test
             }
         }
 
-        [Test]
-        public void UnscentedKalman_Predict_CorrectFirstPrediction() {
-            var mean = new List<double>() { 0, 0, 0, 0 };
-            Matrix P = new Matrix(4, 4);
-            P.SetRow(0, new double[] { 1, 0, 0, 0 });
-            P.SetRow(1, new double[] { 0, 1, 0, 0 });
-            P.SetRow(2, new double[] { 0, 0, 1, 0 });
-            P.SetRow(3, new double[] { 0, 0, 0, 1 });
-            Matrix F = new Matrix(4, 4);
-            F.SetRow(0, new double[] { 1, 1, 0, 0 });
-            F.SetRow(1, new double[] { 0, 1, 0, 0 });
-            F.SetRow(2, new double[] { 0, 0, 1, 1 });
-            F.SetRow(3, new double[] { 0, 0, 0, 1 });
-            var sigmaPointGenerator = new MerweScaledSigmaPoints(4, 0.1, 2, 1);
-            var stateTransition = new StateTransitionModel(F);
-            var measurementSpace = new MeasurementSpace();
-            var Q = new Matrix();
-            UnscentedKalman UKF = new UnscentedKalman(mean, P, sigmaPointGenerator, stateTransition, measurementSpace,Q);
-            UKF.Predict(mean, P, 1);
-            Assert.IsTrue(false);
-        }
         /*
         mean = [0. 0. 0. 0.]
         P = [[1. 0. 0. 0.]
@@ -363,7 +355,7 @@ namespace KalmanFilter.Test
             double scalar = 4;
             int n = 2; double alpha = 0.3, beta = 2, kappa = 0.1;
             MerweScaledSigmaPoints sigma = new MerweScaledSigmaPoints(n, alpha, beta, kappa);
-            Matrix identity = sigma.CreateScalarIdentity(scalar);
+            Matrix identity = sigma.CreateScaledIdentity(scalar);
             Assert.AreEqual(identity.GetRow(0).Length, n);
             Assert.AreEqual(identity.GetColumn(0).Length, n);
             Assert.AreEqual(identity.Get(0,0), scalar);

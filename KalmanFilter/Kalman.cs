@@ -79,7 +79,7 @@ namespace KalmanFilter
             //Create Identity if P is 1x1
             Matrix P = covariance;
             if (covariance.GetRow(0).Length == 1 && covariance.GetColumn(0).Length == 1) {
-                P = CreateScalarIdentity(covariance.Get(0,0));
+                P = CreateScaledIdentity(covariance.Get(0,0));
             }
 
             int sigmaCount = 2 * n + 1;
@@ -129,7 +129,7 @@ namespace KalmanFilter
             return covarianceWeight;
         }
 
-        public Matrix CreateScalarIdentity(double scalar) {
+        public Matrix CreateScaledIdentity(double scalar) {
             Matrix identity = new Matrix(n, n);
             for (int i = 0; i < n; i++) {
                 identity.Set(i, i, scalar);
@@ -140,23 +140,22 @@ namespace KalmanFilter
 
     public class UnscentedKalman : IKalman
     {
-        Matrix P;
-        List<double> meanWeight;
-        List<double> covarianceWeight;
+        Matrix P, Q, X, Y, Pbar;
+        List<double> meanWeight, covarianceWeight, xBar;
         MeasurementSpace measurementSpace;
-        ISigmaPointGenerator SigmaGenerator;
+        ISigmaPointGenerator sigmaGenerator;
         StateTransitionModel stateTransitionModel;
 
         public UnscentedKalman() { }
 
-        public UnscentedKalman(List<double> mean, Matrix covariance, ISigmaPointGenerator SigmaFunction, StateTransitionModel stateTransitionModel_F, MeasurementSpace measurementSpace_H, Matrix ProcessNoiseCovariance_Q) {
-            this.SigmaGenerator = SigmaFunction;
+        public UnscentedKalman(List<double> mean, Matrix covariance, ISigmaPointGenerator sigmaPointGenerator, StateTransitionModel stateTransitionModel_F, MeasurementSpace measurementSpace_H, Matrix processNoiseCovariance) {
+            this.sigmaGenerator = sigmaPointGenerator;
             this.P = covariance;
             this.stateTransitionModel = stateTransitionModel_F;
             this.measurementSpace = measurementSpace_H;
-            meanWeight = this.SigmaGenerator.GetMeanWeight();
-            covarianceWeight = this.SigmaGenerator.GetCovarianceWeight();
-
+            Q = processNoiseCovariance;
+            meanWeight = this.sigmaGenerator.GetMeanWeight();
+            covarianceWeight = this.sigmaGenerator.GetCovarianceWeight();
         }
 
         public void Predict() { }
@@ -177,48 +176,48 @@ namespace KalmanFilter
             return xBar;
         }
 
-        public Matrix GetWeightedCovariance(Matrix sigmas, List<double> weightedSigmas, List<double> covarianceWeights, Matrix processNoiseCovariance) {
-            Matrix y = sigmas;
+        public Matrix GetWeightedCovariance(Matrix transformedSigmas, List<double> weightedSigmas, List<double> covarianceWeight, Matrix processNoiseCovariance) {
+            Matrix y = transformedSigmas;
             List<double> xBar = weightedSigmas;
-            List<double> Wc = covarianceWeights;
+            List<double> Wc = covarianceWeight;
             Matrix Q = processNoiseCovariance;
 
-            for (int i = 0; i < sigmas.GetColumn(0).Length; i++) {
+            for (int i = 0; i < y.GetColumn(0).Length; i++) {
                 y.SetRow(i, y.GetRow(i).Zip(xBar, (x1, x2) => x1 - x2 ).ToArray());
             }
 
-            return new Matrix();
+            Matrix WcMatrix = new Matrix(Wc.Count, Wc.Count);
+            for (int i = 0; i < Wc.Count; i++) {
+                WcMatrix.Set(i, i, Wc.ElementAt(i));
+            }
+
+            return y.Transpose().Multiply(WcMatrix.Multiply(y));
         }
 
         public Matrix TransitionSigmas(StateTransitionModel transitionModelFx, Matrix sigmaPointsX) {
             int rowSize = sigmaPointsX.GetColumn(0).Length;
             int colSize = sigmaPointsX.GetRow(0).Length;
-            List<double> transitedSigmas;
+            List<double> transformedSigmas;
             var y = new Matrix(rowSize, colSize);
             for (int i = 0; i < rowSize; i++) {
-                transitedSigmas = transitionModelFx.Next(sigmaPointsX.GetRow(i).ToList());
-                y.SetRow(i, transitedSigmas.ToArray());
+                transformedSigmas = transitionModelFx.Next(sigmaPointsX.GetRow(i).ToList());
+                y.SetRow(i, transformedSigmas.ToArray());
             }
             return y;
         }
 
         public void Predict(List<double> mean, Matrix covariance, double timeStep) {
             P = covariance;
-            Matrix x = SigmaGenerator.GetSigmaPoints(mean, P);
+            X = sigmaGenerator.GetSigmaPoints(mean, P);
 
             // Y = f(x)
-            Matrix y = TransitionSigmas(stateTransitionModel, x);
+            Y = TransitionSigmas(stateTransitionModel, X);
 
             // xBar = Sum(wM * Y)
-            List<double> xBar = GetWeightedSigmas(meanWeight, y);
+            xBar = GetWeightedSigmas(meanWeight, Y);
 
             // _P = Sum(    wC(Y - _x)*(Y - _x) + Q   )
-            Matrix Pbar = GetWeightedCovariance();
-
-            /*
-            SigmaPointGenerator()
-            SigmaPointGenerator.
-            */
+            Pbar = GetWeightedCovariance(Y, xBar, covarianceWeight, Q);
         }
 
         public void Update(double[] Z) {
