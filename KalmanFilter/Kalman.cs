@@ -8,6 +8,7 @@ namespace KalmanFilter
     /*
     To Do:
     - Compare Unscented vs Standard Kalman on sin wave
+    - Figure out inversion for any size matrix, instead of just 2x2 inversion
     */
     public class Program
     {
@@ -150,8 +151,8 @@ namespace KalmanFilter
 
     public class UnscentedKalman : IKalman {
         Matrix Q, R, X, Y, Z, K;
-        Matrix P, Pz, Pxz, Pbar, residual_y;
-        List<double> meanWeight, covarianceWeight, xBar, Uz;
+        Matrix P, Pz, Pxz, Pbar, residual_y, P_posterior;
+        List<double> x_posterior, meanWeight, covarianceWeight, xBar, Uz;
         MeasurementSpace measurementSpace;
         ISigmaPointGenerator sigmaGenerator;
         StateTransitionModel stateTransitionModel;
@@ -245,6 +246,18 @@ namespace KalmanFilter
             return y.Transpose().Multiply(WcMatrix.Multiply(y));
         }
 
+        public Matrix GetKalmanGain(Matrix crossVariance, Matrix covariance) {
+            Matrix inverse = covariance.Invert_2x2();
+            return crossVariance.Multiply(inverse);
+        }
+
+        public List<double> GetPosteriorX(List<double> x , Matrix kGain, Matrix residual) {
+            Matrix Ky = kGain.Multiply(residual);
+
+            throw new NotImplementedException();
+
+        }
+
         public Matrix TransitionSigmas(StateTransitionModel transitionModelFx, Matrix sigmaPointsX) {
             int rowSize = sigmaPointsX.GetColumn(0).Length;
             int colSize = sigmaPointsX.GetRow(0).Length;
@@ -284,9 +297,11 @@ namespace KalmanFilter
             // Pz = Sum(    wC*(Z - uZ)*Transpose(Z - uZ)  + R  )
             Pz = GetWeightedCovariance(Z, Uz, covarianceWeight).Add(R);
             Pxz = GetCrossVariance(xBar, Uz, covarianceWeight, Y, Z);
-            K = Pxz.Multiply(Pz.Transpose());
+            K = GetKalmanGain(Pxz, Pz);
 
             // x = _x + K*y
+            var A = K.Multiply(residual_y);
+
             // P = P - K*Pz*Transpose(K)
         }
 

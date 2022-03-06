@@ -11,6 +11,43 @@ namespace KalmanFilter.Test
         public void Setup() { }
 
         [Test]
+        public void UnscentedKalman_GetPosteriorX_CorrectPosterior() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            Matrix K = new Matrix(4, 2);
+            K.SetRow(0, new double[] { 0.9569378, 0 });
+            K.SetRow(1, new double[] { 0.4784689, 0 });
+            K.SetRow(2, new double[] { 0, 0.9569378 });
+            K.SetRow(3, new double[] { 0, 0.4784689 });
+
+            Matrix residual_y = new Matrix(1,2);
+            residual_y.SetRow(0, new double[] { 0.3, 0.3 });
+
+            var xBar = new List<double>() { 0, 0, 0, 0 };
+            List<double> x_posterior = UKF.GetPosteriorX(xBar, K, residual_y);
+            Assert.AreEqual(new double[] { 0.28708134, 0.14354067, 0.28708134, 0.14354067 }, x_posterior);
+        }
+
+        [Test]
+        public void UnscentedKalman_GetKalmanGain_CorrectKalman() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            Matrix Pxz = new Matrix(4, 2);
+            Pxz.SetRow(0, new double[] { 2, 0 });
+            Pxz.SetRow(1, new double[] { 1, 0 });
+            Pxz.SetRow(2, new double[] { 0, 2 });
+            Pxz.SetRow(3, new double[] { 0, 1 });
+
+            Matrix P = new Matrix(2, 2);
+            P.SetRow(0, new double[] { 2.09, 0 });
+            P.SetRow(1, new double[] { 0, 2.09 });
+
+            Matrix kalman = UKF.GetKalmanGain(Pxz, P);
+            Assert.AreEqual(new double[] { 0.9569378, 0 }, kalman.GetRow(0).Select(k => Math.Round(k, 7)));
+            Assert.AreEqual(new double[] { 0.4784689, 0 }, kalman.GetRow(1).Select(k => Math.Round(k, 7)));
+            Assert.AreEqual(new double[] { 0, 0.9569378 }, kalman.GetRow(2).Select(k => Math.Round(k, 7)));
+            Assert.AreEqual(new double[] { 0, 0.4784689 }, kalman.GetRow(3).Select(k => Math.Round(k, 7)));
+        }
+
+        [Test]
         public void UnscentedKalman_GetCrossVariance_CorrectVariance() {
             UnscentedKalman UKF = new UnscentedKalman();
             var xBar = new List<double>() { 0, 0, 0, 0 };
