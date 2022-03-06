@@ -6,10 +6,88 @@ using System.Collections.Generic;
 
 namespace KalmanFilter.Test
 {
-    public class Tests
-    {
+    public class Tests {
         [SetUp]
         public void Setup() { }
+
+        [Test]
+        public void UnscentedKalman_GetCrossVariance_CorrectVariance() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            var xBar = new List<double>() { 0, 0, 0, 0 };
+            var U = new List<double>() { 0, 0};
+            var weight = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
+            Matrix Y = new Matrix(9, 4);
+            Y.SetRow(0, new double[] { 0, 0, 0, 0 });
+            Y.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
+            Y.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
+            Y.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
+            Y.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
+            Y.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
+            Y.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
+            Y.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
+            Y.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
+
+            Matrix Z = new Matrix(9, 2);
+            Z.SetRow(0, new double[] { 0, 0});
+            Z.SetRow(1, new double[] { 0.2236068, 0 });
+            Z.SetRow(2, new double[] { 0.2236068, 0 });
+            Z.SetRow(3, new double[] { 0, 0.2236068 });
+            Z.SetRow(4, new double[] { 0, 0.2236068 });
+            Z.SetRow(5, new double[] { -0.2236068, 0 });
+            Z.SetRow(6, new double[] { -0.2236068, 0 });
+            Z.SetRow(7, new double[] { 0, -0.2236068 });
+            Z.SetRow(8, new double[] { 0, -0.2236068 });
+
+            Matrix Pxz = UKF.GetCrossVariance(xBar, U, weight, Y, Z);
+            Assert.AreEqual(new double[] { 2, 0 }, Pxz.GetRow(0).Select(x => Math.Round(x, 7)));
+            Assert.AreEqual(new double[] { 1, 0 }, Pxz.GetRow(1).Select(x => Math.Round(x, 7)));
+            Assert.AreEqual(new double[] { 0, 2 }, Pxz.GetRow(2).Select(x => Math.Round(x, 7)));
+            Assert.AreEqual(new double[] { 0, 1 }, Pxz.GetRow(3).Select(x => Math.Round(x, 7)));
+        }
+
+        /*
+        Q
+        [[0.005 0.01  0.    0.   ]
+         [0.01  0.02  0.    0.   ]
+         [0.    0.    0.005 0.01 ]
+         [0.    0.    0.01  0.02 ]]
+        x
+        [[ 0.         0.         0.         0.       ]
+         [ 0.2236068  0.         0.         0.       ]
+         [ 0.         0.2236068  0.         0.       ]
+         [ 0.         0.         0.2236068  0.       ]
+         [ 0.         0.         0.         0.2236068]
+         [-0.2236068  0.         0.         0.       ]
+         [ 0.        -0.2236068  0.         0.       ]
+         [ 0.         0.        -0.2236068  0.       ]
+         [ 0.         0.         0.        -0.2236068]]
+        xBar [1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]
+        Uz [1.05007638e-16 1.05007638e-16]
+        Y [[ 0.         0.         0.         0.       ]
+         [ 0.2236068  0.         0.         0.       ]
+         [ 0.2236068  0.2236068  0.         0.       ]
+         [ 0.         0.         0.2236068  0.       ]
+         [ 0.         0.         0.2236068  0.2236068]
+         [-0.2236068  0.         0.         0.       ]
+         [-0.2236068 -0.2236068  0.         0.       ]
+         [ 0.         0.        -0.2236068  0.       ]
+         [ 0.         0.        -0.2236068 -0.2236068]]
+        Z [[ 0.         0.       ]
+         [ 0.2236068  0.       ]
+         [ 0.2236068  0.       ]
+         [ 0.         0.2236068]
+         [ 0.         0.2236068]
+         [-0.2236068  0.       ]
+         [-0.2236068  0.       ]
+         [ 0.        -0.2236068]
+         [ 0.        -0.2236068]]
+        Wc [-76.01  10.    10.    10.    10.    10.    10.    10.    10.  ]
+        n 9
+        Pxz [[2.00000000e+00 9.86076132e-32]
+         [1.00000000e+00 9.86076132e-32]
+         [9.86076132e-32 2.00000000e+00]
+         [1.97215226e-31 1.00000000e+00]]
+         */
 
         [Test]
         public void UnscentedKalman_GetWeightedCovariance_CovarianceCorrectlyWeighted() {
@@ -45,7 +123,7 @@ namespace KalmanFilter.Test
             var Wc = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
 
             UnscentedKalman UKF = new UnscentedKalman();
-            Matrix Pbar = UKF.GetWeightedCovariance(y, xBar, Wc, Q);
+            Matrix Pbar = UKF.GetWeightedCovariance(y, xBar, Wc).Add(Q);
 
             Assert.AreEqual(new double[] { 2, 1, 0, 0 }, Pbar.GetRow(0).Select(p => Math.Round(p, 3)));
             Assert.AreEqual(new double[] { 1, 1, 0, 0 }, Pbar.GetRow(1).Select(p => Math.Round(p, 3)));

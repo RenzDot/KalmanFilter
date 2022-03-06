@@ -15,13 +15,23 @@ namespace KalmanFilter
         static void Main() {}
     }
 
-    public interface IMeasurement { }
-
     public interface ITransistion { }
 
-    public class MeasurementSpace: IMeasurement {
+    public class MeasurementSpace: ITransistion
+    {
+        Matrix measurementSpace;
         public MeasurementSpace() {
             
+        }
+
+        public Matrix Next(Matrix sigmas) {
+            int rowCount = sigmas.GetColumn(0).Length;
+            Matrix H = new Matrix(rowCount, 2);
+            for (int i = 0; i < rowCount; i++) {
+                H.Set(i, 0, sigmas.Get(i, 0));
+                H.Set(i, 2, sigmas.Get(i, 2));
+            }
+            return H;
         }
     }
 
@@ -138,22 +148,30 @@ namespace KalmanFilter
         }
     }
 
-    public class UnscentedKalman : IKalman
-    {
-        Matrix P, Q, X, Y, Pbar;
-        List<double> meanWeight, covarianceWeight, xBar;
+    public class UnscentedKalman : IKalman {
+        Matrix Q, R, X, Y, Z, K;
+        Matrix P, Pz, Pxz, Pbar, residual_y;
+        List<double> meanWeight, covarianceWeight, xBar, Uz;
         MeasurementSpace measurementSpace;
         ISigmaPointGenerator sigmaGenerator;
         StateTransitionModel stateTransitionModel;
 
         public UnscentedKalman() { }
 
-        public UnscentedKalman(List<double> mean, Matrix covariance, ISigmaPointGenerator sigmaPointGenerator, StateTransitionModel stateTransitionModel_F, MeasurementSpace measurementSpace_H, Matrix processNoiseCovariance) {
+        public UnscentedKalman(
+                List<double> mean, Matrix covariance,
+                ISigmaPointGenerator sigmaPointGenerator,
+                StateTransitionModel stateTransitionModel_F,
+                MeasurementSpace measurementSpace_H,
+                Matrix processNoiseCovariance_Q,
+                Matrix Noise_R
+            ) {
             this.sigmaGenerator = sigmaPointGenerator;
             this.P = covariance;
             this.stateTransitionModel = stateTransitionModel_F;
             this.measurementSpace = measurementSpace_H;
-            Q = processNoiseCovariance;
+            Q = processNoiseCovariance_Q;
+            R = Noise_R;
             meanWeight = this.sigmaGenerator.GetMeanWeight();
             covarianceWeight = this.sigmaGenerator.GetCovarianceWeight();
         }
@@ -176,11 +194,44 @@ namespace KalmanFilter
             return xBar;
         }
 
-        public Matrix GetWeightedCovariance(Matrix transformedSigmas, List<double> weightedSigmas, List<double> covarianceWeight, Matrix processNoiseCovariance) {
-            Matrix y = transformedSigmas;
+        public Matrix GetResidual(Matrix measurement, List<double> prior) {
+            Matrix residual = measurement;
+            for (int i = 0; i < residual.GetColumn(0).Length; i++) {
+                double[] row = residual.GetRow(i);
+                residual.SetRow(i, row.Zip(prior, (z, u) => z - u).ToArray());
+            }
+            return residual;
+        }
+
+        public Matrix GetCrossVariance(List<double> sigmasXbar, List<double> sigmasU, List<double> covWeight, Matrix sigmasY, Matrix sigmasZ) {
+            int rowSize = sigmasY.GetRow(0).Length;
+            int colSize = sigmasZ.GetRow(0).Length;
+            Matrix Pxz = new Matrix(rowSize, colSize);
+            Matrix outer = new Matrix(rowSize, colSize);
+            List<double> dx, dz;
+            double[] row;
+            int n = sigmasY.GetColumn(0).Length;
+            for (int i = 0; i < n; i++) {
+                var rowX = sigmasY.GetRow(i);
+                var rowZ = sigmasZ.GetRow(i);
+                dx = sigmasY.GetRow(i).Zip(sigmasXbar, (yi, xi) => yi - xi).ToList();
+                dz = sigmasZ.GetRow(i).Zip(sigmasU, (zi, ui) => zi - ui ).ToList();
+
+                for (int j = 0; j < rowSize; j++) {
+                    row = dz.Select(zi => dx[j] * zi).ToArray();
+                    outer.SetRow(j, row);
+                }
+                outer = outer.Multiply(covWeight[i]);
+                Pxz = Pxz.Add(outer);
+                //Pxz += self.Wc[i] * outer(dx, dz)
+            }
+            return Pxz;
+        }
+
+        public Matrix GetWeightedCovariance(Matrix sigmas, List<double> weightedSigmas, List<double> covarianceWeight) {
+            Matrix y = sigmas;
             List<double> xBar = weightedSigmas;
             List<double> Wc = covarianceWeight;
-            Matrix Q = processNoiseCovariance;
 
             for (int i = 0; i < y.GetColumn(0).Length; i++) {
                 y.SetRow(i, y.GetRow(i).Zip(xBar, (x1, x2) => x1 - x2 ).ToArray());
@@ -217,15 +268,24 @@ namespace KalmanFilter
             xBar = GetWeightedSigmas(meanWeight, Y);
 
             // _P = Sum(    wC(Y - _x)*(Y - _x) + Q   )
-            Pbar = GetWeightedCovariance(Y, xBar, covarianceWeight, Q);
+            Pbar = GetWeightedCovariance(Y, xBar, covarianceWeight).Add(Q);
         }
 
-        public void Update(double[] Z) {
+        public void Update(double[] measurement) {
             // Z = h(Y)
-            // uZ = Sum(wM * Z)
+            Z = measurementSpace.Next(Y);
+
+            // Uz = Sum(wM * Z)
+            Uz = GetWeightedSigmas(meanWeight, Z);
+
             // y = z - uZ
+            residual_y = GetResidual(Z, Uz);
+
             // Pz = Sum(    wC*(Z - uZ)*Transpose(Z - uZ)  + R  )
-            // K = ????
+            Pz = GetWeightedCovariance(Z, Uz, covarianceWeight).Add(R);
+            Pxz = GetCrossVariance(xBar, Uz, covarianceWeight, Y, Z);
+            K = Pxz.Multiply(Pz.Transpose());
+
             // x = _x + K*y
             // P = P - K*Pz*Transpose(K)
         }
