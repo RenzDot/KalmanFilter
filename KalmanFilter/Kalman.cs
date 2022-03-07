@@ -152,7 +152,7 @@ namespace KalmanFilter
     public class UnscentedKalman : IKalman {
         Matrix Q, R, X, Y, Z, K;
         Matrix P, Pz, Pxz, Pbar, residual_y, P_posterior;
-        List<double> x_posterior, meanWeight, covarianceWeight, xBar, Uz;
+        List<double> xPosterior, meanWeight, covarianceWeight, xBar, Uz;
         MeasurementSpace measurementSpace;
         ISigmaPointGenerator sigmaGenerator;
         StateTransitionModel stateTransitionModel;
@@ -252,10 +252,24 @@ namespace KalmanFilter
         }
 
         public List<double> GetPosteriorX(List<double> x , Matrix kGain, Matrix residual) {
-            Matrix Ky = kGain.Multiply(residual);
+            if (residual.GetColumn(0).Length != 1) { 
+                throw new ArgumentException($"Cannot obtain x posterior as residual matrix has {residual.GetColumn(0).Length} rows, when it should be one"); 
+            }
+            int rowSize = kGain.GetColumn(0).Length;
+            int colSize = residual.GetRow(0).Length;
+            double[] posterior = new double[rowSize];
+            for (int i = 0; i < rowSize; i++) {
+                for (int j = 0; j < colSize; j++) {
+                    posterior[i] += kGain.Get(i, j) * residual.Get(0, j);
+                }
+                posterior[i] += x[i];
+            }
 
-            throw new NotImplementedException();
+            return posterior.ToList();
+        }
 
+        public Matrix GetPosteriorP(Matrix covariance, Matrix weightedCovariance, Matrix kGain) {
+            return covariance.Subtract(kGain.Multiply(weightedCovariance.Multiply(kGain.Transpose()))); ;
         }
 
         public Matrix TransitionSigmas(StateTransitionModel transitionModelFx, Matrix sigmaPointsX) {
@@ -300,9 +314,10 @@ namespace KalmanFilter
             K = GetKalmanGain(Pxz, Pz);
 
             // x = _x + K*y
-            var A = K.Multiply(residual_y);
+            xPosterior = GetPosteriorX(xBar, K, residual_y);
 
             // P = P - K*Pz*Transpose(K)
+            P_posterior = GetPosteriorP(P, Pz, K);
         }
 
         public void UnscentedTransform() {

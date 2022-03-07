@@ -11,7 +11,32 @@ namespace KalmanFilter.Test
         public void Setup() { }
 
         [Test]
-        public void UnscentedKalman_GetPosteriorX_CorrectPosterior() {
+        public void UnscentedKalman_GetPosteriorP_CorrectPosteriorForP() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            Matrix Pbar = new Matrix(4, 4);
+            Pbar.SetRow(0, new double[] { 2.005, 1.01, 0, 0});
+            Pbar.SetRow(1, new double[] { 1.01, 1.02, 0, 0 });
+            Pbar.SetRow(2, new double[] { 0, 0, 2.005, 1.01});
+            Pbar.SetRow(3, new double[] { 0, 0, 1.01, 1.02 });
+
+            Matrix K = new Matrix(4, 2);
+            K.SetRow(0, new double[] { 0.9569378, 0 });
+            K.SetRow(1, new double[] { 0.4784689, 0 });
+            K.SetRow(2, new double[] { 0, 0.9569378 });
+            K.SetRow(3, new double[] { 0, 0.4784689 });
+
+            Matrix Pz = new Matrix(2, 2);
+            Pz.SetRow(0, new double[] { 2.09, 0 });
+            Pz.SetRow(1, new double[] { 0, 2.09 });
+
+            Matrix P_posterior = UKF.GetPosteriorP(Pbar, Pz, K);
+            Assert.AreEqual(new double[] { 0.09112440, 0.05306220, 0, 0 }, P_posterior.GetRow(0).Select(p => Math.Round(p, 8)));
+            Assert.AreEqual(new double[] { 0.05306220, 0.5415311, 0, 0 }, P_posterior.GetRow(1).Select(p => Math.Round(p, 8)));
+            Assert.AreEqual(new double[] { 0, 0, 0.09112440, 0.05306220 }, P_posterior.GetRow(2).Select(p => Math.Round(p, 8)));
+            Assert.AreEqual(new double[] { 0, 0, 0.05306220, 0.5415311 }, P_posterior.GetRow(3).Select(p => Math.Round(p, 8)));
+        }
+        [Test]
+        public void UnscentedKalman_GetPosteriorX_CorrectPosteriorForX() {
             UnscentedKalman UKF = new UnscentedKalman();
             Matrix K = new Matrix(4, 2);
             K.SetRow(0, new double[] { 0.9569378, 0 });
@@ -23,7 +48,7 @@ namespace KalmanFilter.Test
             residual_y.SetRow(0, new double[] { 0.3, 0.3 });
 
             var xBar = new List<double>() { 0, 0, 0, 0 };
-            List<double> x_posterior = UKF.GetPosteriorX(xBar, K, residual_y);
+            List<double> x_posterior = UKF.GetPosteriorX(xBar, K, residual_y).Select(x => Math.Round(x,8)).ToList();
             Assert.AreEqual(new double[] { 0.28708134, 0.14354067, 0.28708134, 0.14354067 }, x_posterior);
         }
 
