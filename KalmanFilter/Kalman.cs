@@ -150,7 +150,7 @@ namespace KalmanFilter
     }
 
     public class UnscentedKalman : IKalman {
-        Matrix Q, R, X, Y, Z, K;
+        Matrix Q, R, X, Y, Zeta, K;
         Matrix P, Pz, Pxz, Pbar, residual_y, P_posterior;
         List<double> xPosterior, meanWeight, covarianceWeight, xBar, Uz;
         MeasurementSpace measurementSpace;
@@ -195,12 +195,9 @@ namespace KalmanFilter
             return xBar;
         }
 
-        public Matrix GetResidual(Matrix measurement, List<double> prior) {
-            Matrix residual = measurement;
-            for (int i = 0; i < residual.GetColumn(0).Length; i++) {
-                double[] row = residual.GetRow(i);
-                residual.SetRow(i, row.Zip(prior, (z, u) => z - u).ToArray());
-            }
+        public Matrix GetResidual(List<double> measurement, List<double> prior) {
+            Matrix residual = new Matrix(1, prior.Count);
+            residual.SetRow(0, measurement.Zip(prior, (z, u) => z - u).ToArray());
             return residual;
         }
 
@@ -300,17 +297,17 @@ namespace KalmanFilter
 
         public void Update(double[] measurement) {
             // Z = h(Y)
-            Z = measurementSpace.Next(Y);
+            Zeta = measurementSpace.Next(Y);
 
             // Uz = Sum(wM * Z)
-            Uz = GetWeightedSigmas(meanWeight, Z);
+            Uz = GetWeightedSigmas(meanWeight, Zeta);
 
             // y = z - uZ
-            residual_y = GetResidual(Z, Uz);
+            residual_y = GetResidual(measurement.ToList(), Uz);
 
             // Pz = Sum(    wC*(Z - uZ)*Transpose(Z - uZ)  + R  )
-            Pz = GetWeightedCovariance(Z, Uz, covarianceWeight).Add(R);
-            Pxz = GetCrossVariance(xBar, Uz, covarianceWeight, Y, Z);
+            Pz = GetWeightedCovariance(Zeta, Uz, covarianceWeight).Add(R);
+            Pxz = GetCrossVariance(xBar, Uz, covarianceWeight, Y, Zeta);
             K = GetKalmanGain(Pxz, Pz);
 
             // x = _x + K*y

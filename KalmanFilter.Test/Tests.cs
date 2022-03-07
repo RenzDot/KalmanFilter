@@ -7,367 +7,178 @@ using System.Collections.Generic;
 namespace KalmanFilter.Test
 {
     public class Tests {
+
+        List<double> xBar_1, Uz_1, posteriorX_1, meanWeight_1, covarianceWeight_1, measurementZ_1;
+        Matrix X_1, Y_1, Q_1, F_1, pBar_1, zeta_1, residualY_1, Pz_1, Pxz_1, K_1, posteriorP_1;
+        int dp;
+
+        /*
+        To Do:
+        - Test GetResidual()
+        */
+
         [SetUp]
-        public void Setup() { }
+        public void Setup() {
+
+            //Expected Values for Unscented Kalman Filter
+            Uz_1 = new List<double>() { 0, 0 };
+            xBar_1 = new List<double>() { 0, 0, 0, 0 };
+            measurementZ_1 = new List<double>() { 0.3, 0.3 };
+            meanWeight_1 = new List<double>() { -79, 10, 10, 10, 10, 10, 10, 10, 10 };
+            covarianceWeight_1 = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
+            posteriorX_1 = new List<double>() { 0.28708134, 0.14354067, 0.28708134, 0.14354067 };
+
+            X_1 = new Matrix(9, 4);
+            X_1.SetRow(0, new double[] { 0, 0, 0, 0 });
+            X_1.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
+            X_1.SetRow(2, new double[] { 0, 0.2236068, 0, 0 });
+            X_1.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
+            X_1.SetRow(4, new double[] { 0, 0, 0, 0.2236068 });
+            X_1.SetRow(5, new double[] { 0.2236068, 0, 0, 0 });
+            X_1.SetRow(6, new double[] { 0, 0.2236068, 0, 0 });
+            X_1.SetRow(7, new double[] { 0, 0, 0.2236068, 0 });
+            X_1.SetRow(8, new double[] { 0, 0, 0, 0.2236068 });
+
+            Y_1 = new Matrix(9, 4);
+            Y_1.SetRow(0, new double[] { 0, 0, 0, 0 });
+            Y_1.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
+            Y_1.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
+            Y_1.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
+            Y_1.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
+            Y_1.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
+            Y_1.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
+            Y_1.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
+            Y_1.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
+
+            F_1 = new Matrix(4, 4);
+            F_1.SetRow(0, new double[] { 1, 1, 0, 0 });
+            F_1.SetRow(1, new double[] { 0, 1, 0, 0 });
+            F_1.SetRow(2, new double[] { 0, 0, 1, 1 });
+            F_1.SetRow(3, new double[] { 0, 0, 0, 1 });
+
+            pBar_1 = new Matrix(4, 4);
+            pBar_1.SetRow(0, new double[] { 2.005, 1.01, 0, 0 });
+            pBar_1.SetRow(1, new double[] { 1.01, 1.02, 0, 0 });
+            pBar_1.SetRow(2, new double[] { 0, 0, 2.005, 1.01 });
+            pBar_1.SetRow(3, new double[] { 0, 0, 1.01, 1.02 });
+
+            zeta_1 = new Matrix(9, 2);
+            zeta_1.SetRow(0, new double[] { 0, 0 });
+            zeta_1.SetRow(1, new double[] { 0.2236068, 0 });
+            zeta_1.SetRow(2, new double[] { 0.2236068, 0 });
+            zeta_1.SetRow(3, new double[] { 0, 0.2236068 });
+            zeta_1.SetRow(4, new double[] { 0, 0.2236068 });
+            zeta_1.SetRow(5, new double[] { -0.2236068, 0 });
+            zeta_1.SetRow(6, new double[] { -0.2236068, 0 });
+            zeta_1.SetRow(7, new double[] { 0, -0.2236068 });
+            zeta_1.SetRow(8, new double[] { 0, -0.2236068 });
+            
+            residualY_1 = new Matrix(1, 2);
+            residualY_1.SetRow(0, new double[] { 0.3, 0.3 });
+
+            Pz_1 = new Matrix(2, 2);
+            Pz_1.SetRow(0, new double[] { 2.09, 0 });
+            Pz_1.SetRow(1, new double[] { 0, 2.09 });
+
+            Pxz_1 = new Matrix(4, 2);
+            Pxz_1.SetRow(0, new double[] { 2, 0 });
+            Pxz_1.SetRow(1, new double[] { 1, 0 });
+            Pxz_1.SetRow(2, new double[] { 0, 2 });
+            Pxz_1.SetRow(3, new double[] { 0, 1 });
+
+            K_1 = new Matrix(4, 2);
+            K_1.SetRow(0, new double[] { 0.9569378, 0 });
+            K_1.SetRow(1, new double[] { 0.4784689, 0 });
+            K_1.SetRow(2, new double[] { 0, 0.9569378 });
+            K_1.SetRow(3, new double[] { 0, 0.4784689 });
+            
+            posteriorP_1 = new Matrix(4, 4);
+            posteriorP_1.SetRow(0, new double[] { 0.09112440, 0.05306220, 0, 0 });
+            posteriorP_1.SetRow(1, new double[] { 0.05306220, 0.5415311, 0, 0 });
+            posteriorP_1.SetRow(2, new double[] { 0, 0, 0.09112440, 0.05306220 });
+            posteriorP_1.SetRow(3, new double[] { 0, 0, 0.05306220, 0.5415311 });
+
+            Q_1 = new Matrix(4, 4);
+            Q_1.SetRow(0, new double[] { 0.005, 0.01, 0, 0 });
+            Q_1.SetRow(1, new double[] { 0.01, 0.02, 0, 0 });
+            Q_1.SetRow(2, new double[] { 0, 0, 0.005, 0.01 });
+            Q_1.SetRow(3, new double[] { 0, 0, 0.01, 0.02 });
+        }   
+
+        [Test]
+        public void UnscentedKalman_GetResidual_CorrectResidual() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            Matrix Y = UKF.GetResidual(measurementZ_1, Uz_1);
+            int rowSize = residualY_1.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(residualY_1.GetRow(i), Y.GetRow(i).Select( x => Math.Round(x, 3)));
+            }
+        }
 
         [Test]
         public void UnscentedKalman_GetPosteriorP_CorrectPosteriorForP() {
-            UnscentedKalman UKF = new UnscentedKalman();
-            Matrix Pbar = new Matrix(4, 4);
-            Pbar.SetRow(0, new double[] { 2.005, 1.01, 0, 0});
-            Pbar.SetRow(1, new double[] { 1.01, 1.02, 0, 0 });
-            Pbar.SetRow(2, new double[] { 0, 0, 2.005, 1.01});
-            Pbar.SetRow(3, new double[] { 0, 0, 1.01, 1.02 });
-
-            Matrix K = new Matrix(4, 2);
-            K.SetRow(0, new double[] { 0.9569378, 0 });
-            K.SetRow(1, new double[] { 0.4784689, 0 });
-            K.SetRow(2, new double[] { 0, 0.9569378 });
-            K.SetRow(3, new double[] { 0, 0.4784689 });
-
-            Matrix Pz = new Matrix(2, 2);
-            Pz.SetRow(0, new double[] { 2.09, 0 });
-            Pz.SetRow(1, new double[] { 0, 2.09 });
-
-            Matrix P_posterior = UKF.GetPosteriorP(Pbar, Pz, K);
-            Assert.AreEqual(new double[] { 0.09112440, 0.05306220, 0, 0 }, P_posterior.GetRow(0).Select(p => Math.Round(p, 8)));
-            Assert.AreEqual(new double[] { 0.05306220, 0.5415311, 0, 0 }, P_posterior.GetRow(1).Select(p => Math.Round(p, 8)));
-            Assert.AreEqual(new double[] { 0, 0, 0.09112440, 0.05306220 }, P_posterior.GetRow(2).Select(p => Math.Round(p, 8)));
-            Assert.AreEqual(new double[] { 0, 0, 0.05306220, 0.5415311 }, P_posterior.GetRow(3).Select(p => Math.Round(p, 8)));
+            UnscentedKalman UKF = new UnscentedKalman(); 
+            Matrix P_posterior = UKF.GetPosteriorP(pBar_1, Pz_1, K_1);
+            int rowSize = posteriorP_1.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(posteriorP_1.GetRow(i), P_posterior.GetRow(i).Select(p => Math.Round(p, 8)));
+            }
         }
+
         [Test]
         public void UnscentedKalman_GetPosteriorX_CorrectPosteriorForX() {
             UnscentedKalman UKF = new UnscentedKalman();
-            Matrix K = new Matrix(4, 2);
-            K.SetRow(0, new double[] { 0.9569378, 0 });
-            K.SetRow(1, new double[] { 0.4784689, 0 });
-            K.SetRow(2, new double[] { 0, 0.9569378 });
-            K.SetRow(3, new double[] { 0, 0.4784689 });
-
-            Matrix residual_y = new Matrix(1,2);
-            residual_y.SetRow(0, new double[] { 0.3, 0.3 });
-
-            var xBar = new List<double>() { 0, 0, 0, 0 };
-            List<double> x_posterior = UKF.GetPosteriorX(xBar, K, residual_y).Select(x => Math.Round(x,8)).ToList();
-            Assert.AreEqual(new double[] { 0.28708134, 0.14354067, 0.28708134, 0.14354067 }, x_posterior);
+            List<double> x_posterior = UKF.GetPosteriorX(xBar_1, K_1, residualY_1).Select(x => Math.Round(x,8)).ToList();
+            Assert.AreEqual(posteriorX_1, x_posterior);
         }
 
         [Test]
         public void UnscentedKalman_GetKalmanGain_CorrectKalman() {
             UnscentedKalman UKF = new UnscentedKalman();
-            Matrix Pxz = new Matrix(4, 2);
-            Pxz.SetRow(0, new double[] { 2, 0 });
-            Pxz.SetRow(1, new double[] { 1, 0 });
-            Pxz.SetRow(2, new double[] { 0, 2 });
-            Pxz.SetRow(3, new double[] { 0, 1 });
+            Matrix kalman = UKF.GetKalmanGain(Pxz_1, Pz_1);
 
-            Matrix P = new Matrix(2, 2);
-            P.SetRow(0, new double[] { 2.09, 0 });
-            P.SetRow(1, new double[] { 0, 2.09 });
-
-            Matrix kalman = UKF.GetKalmanGain(Pxz, P);
-            Assert.AreEqual(new double[] { 0.9569378, 0 }, kalman.GetRow(0).Select(k => Math.Round(k, 7)));
-            Assert.AreEqual(new double[] { 0.4784689, 0 }, kalman.GetRow(1).Select(k => Math.Round(k, 7)));
-            Assert.AreEqual(new double[] { 0, 0.9569378 }, kalman.GetRow(2).Select(k => Math.Round(k, 7)));
-            Assert.AreEqual(new double[] { 0, 0.4784689 }, kalman.GetRow(3).Select(k => Math.Round(k, 7)));
+            int rowSize = K_1.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(K_1.GetRow(i), kalman.GetRow(i).Select(k => Math.Round(k, 7)));
+            }
         }
 
         [Test]
         public void UnscentedKalman_GetCrossVariance_CorrectVariance() {
             UnscentedKalman UKF = new UnscentedKalman();
-            var xBar = new List<double>() { 0, 0, 0, 0 };
-            var U = new List<double>() { 0, 0};
-            var weight = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
-            Matrix Y = new Matrix(9, 4);
-            Y.SetRow(0, new double[] { 0, 0, 0, 0 });
-            Y.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            Y.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
-            Y.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            Y.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
-            Y.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
-            Y.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
-            Y.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
-            Y.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
+            Matrix Pxz = UKF.GetCrossVariance(xBar_1, Uz_1, meanWeight_1, Y_1, zeta_1);
 
-            Matrix Z = new Matrix(9, 2);
-            Z.SetRow(0, new double[] { 0, 0});
-            Z.SetRow(1, new double[] { 0.2236068, 0 });
-            Z.SetRow(2, new double[] { 0.2236068, 0 });
-            Z.SetRow(3, new double[] { 0, 0.2236068 });
-            Z.SetRow(4, new double[] { 0, 0.2236068 });
-            Z.SetRow(5, new double[] { -0.2236068, 0 });
-            Z.SetRow(6, new double[] { -0.2236068, 0 });
-            Z.SetRow(7, new double[] { 0, -0.2236068 });
-            Z.SetRow(8, new double[] { 0, -0.2236068 });
-
-            Matrix Pxz = UKF.GetCrossVariance(xBar, U, weight, Y, Z);
-            Assert.AreEqual(new double[] { 2, 0 }, Pxz.GetRow(0).Select(x => Math.Round(x, 7)));
-            Assert.AreEqual(new double[] { 1, 0 }, Pxz.GetRow(1).Select(x => Math.Round(x, 7)));
-            Assert.AreEqual(new double[] { 0, 2 }, Pxz.GetRow(2).Select(x => Math.Round(x, 7)));
-            Assert.AreEqual(new double[] { 0, 1 }, Pxz.GetRow(3).Select(x => Math.Round(x, 7)));
+            int rowSize = Pxz_1.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(Pxz_1.GetRow(i), Pxz.GetRow(i).Select(x => Math.Round(x, 7)));
+            }
         }
-
-        /*
-        Q
-        [[0.005 0.01  0.    0.   ]
-         [0.01  0.02  0.    0.   ]
-         [0.    0.    0.005 0.01 ]
-         [0.    0.    0.01  0.02 ]]
-        x
-        [[ 0.         0.         0.         0.       ]
-         [ 0.2236068  0.         0.         0.       ]
-         [ 0.         0.2236068  0.         0.       ]
-         [ 0.         0.         0.2236068  0.       ]
-         [ 0.         0.         0.         0.2236068]
-         [-0.2236068  0.         0.         0.       ]
-         [ 0.        -0.2236068  0.         0.       ]
-         [ 0.         0.        -0.2236068  0.       ]
-         [ 0.         0.         0.        -0.2236068]]
-        xBar [1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]
-        Uz [1.05007638e-16 1.05007638e-16]
-        Y [[ 0.         0.         0.         0.       ]
-         [ 0.2236068  0.         0.         0.       ]
-         [ 0.2236068  0.2236068  0.         0.       ]
-         [ 0.         0.         0.2236068  0.       ]
-         [ 0.         0.         0.2236068  0.2236068]
-         [-0.2236068  0.         0.         0.       ]
-         [-0.2236068 -0.2236068  0.         0.       ]
-         [ 0.         0.        -0.2236068  0.       ]
-         [ 0.         0.        -0.2236068 -0.2236068]]
-        Z [[ 0.         0.       ]
-         [ 0.2236068  0.       ]
-         [ 0.2236068  0.       ]
-         [ 0.         0.2236068]
-         [ 0.         0.2236068]
-         [-0.2236068  0.       ]
-         [-0.2236068  0.       ]
-         [ 0.        -0.2236068]
-         [ 0.        -0.2236068]]
-        Wc [-76.01  10.    10.    10.    10.    10.    10.    10.    10.  ]
-        n 9
-        Pxz [[2.00000000e+00 9.86076132e-32]
-         [1.00000000e+00 9.86076132e-32]
-         [9.86076132e-32 2.00000000e+00]
-         [1.97215226e-31 1.00000000e+00]]
-         */
 
         [Test]
         public void UnscentedKalman_GetWeightedCovariance_CovarianceCorrectlyWeighted() {
-            Matrix x = new Matrix(9, 4);
-            x.SetRow(0, new double[] { 0, 0, 0, 0 });
-            x.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            x.SetRow(2, new double[] { 0, 0.2236068, 0, 0 });
-            x.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            x.SetRow(4, new double[] { 0, 0, 0, 0.2236068 });
-            x.SetRow(5, new double[] { 0.2236068, 0, 0, 0 });
-            x.SetRow(6, new double[] { 0, 0.2236068, 0, 0 });
-            x.SetRow(7, new double[] { 0, 0, 0.2236068, 0 });
-            x.SetRow(8, new double[] { 0, 0, 0, 0.2236068 });
-
-            Matrix y = new Matrix(9, 4);
-            y.SetRow(0, new double[] { 0, 0, 0, 0 });
-            y.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            y.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
-            y.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            y.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
-            y.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
-            y.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
-            y.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
-            y.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
-
-            Matrix Q = new Matrix(4, 4);
-            Q.SetRow(0, new double[] { 0.005, 0.01, 0, 0 });
-            Q.SetRow(1, new double[] { 0.01, 0.02, 0, 0 });
-            Q.SetRow(2, new double[] { 0, 0, 0.005, 0.01 });
-            Q.SetRow(3, new double[] { 0, 0, 0.01, 0.02 });
-
-            var xBar = new List<double>() { 0, 0, 0, 0 };
-            var Wc = new List<double>() { -76.01, 10, 10, 10, 10, 10, 10, 10, 10 };
-
             UnscentedKalman UKF = new UnscentedKalman();
-            Matrix Pbar = UKF.GetWeightedCovariance(y, xBar, Wc).Add(Q);
+            Matrix Pbar = UKF.GetWeightedCovariance(Y_1, xBar_1, covarianceWeight_1).Add(Q_1);
 
-            Assert.AreEqual(new double[] { 2, 1, 0, 0 }, Pbar.GetRow(0).Select(p => Math.Round(p, 3)));
-            Assert.AreEqual(new double[] { 1, 1, 0, 0 }, Pbar.GetRow(1).Select(p => Math.Round(p, 3)));
-            Assert.AreEqual(new double[] { 0, 0, 2, 1 }, Pbar.GetRow(2).Select(p => Math.Round(p, 3)));
-            Assert.AreEqual(new double[] { 0, 0, 1, 1 }, Pbar.GetRow(3).Select(p => Math.Round(p, 3)));
-            /*
-             Q
-            [[0.005 0.01  0.    0.   ]
-             [0.01  0.02  0.    0.   ]
-             [0.    0.    0.005 0.01 ]
-             [0.    0.    0.01  0.02 ]]
-
-            mean = [0. 0. 0. 0.]
-            P = [[1. 0. 0. 0.]
-             [0. 1. 0. 0.]
-             [0. 0. 1. 0.]
-             [0. 0. 0. 1.]]
-            x
-            [[ 0.         0.         0.         0.       ]
-             [ 0.2236068  0.         0.         0.       ]
-             [ 0.         0.2236068  0.         0.       ]
-             [ 0.         0.         0.2236068  0.       ]
-             [ 0.         0.         0.         0.2236068]
-             [-0.2236068  0.         0.         0.       ]
-             [ 0.        -0.2236068  0.         0.       ]
-             [ 0.         0.        -0.2236068  0.       ]
-             [ 0.         0.         0.        -0.2236068]]
-            args
-            {}
-            Y
-            [[ 0.         0.         0.         0.       ]
-             [ 0.2236068  0.         0.         0.       ]
-             [ 0.2236068  0.2236068  0.         0.       ]
-             [ 0.         0.         0.2236068  0.       ]
-             [ 0.         0.         0.2236068  0.2236068]
-             [-0.2236068  0.         0.         0.       ]
-             [-0.2236068 -0.2236068  0.         0.       ]
-             [ 0.         0.        -0.2236068  0.       ]
-             [ 0.         0.        -0.2236068 -0.2236068]]
-            sigmas [[ 0.         0.         0.         0.       ]
-             [ 0.2236068  0.         0.         0.       ]
-             [ 0.2236068  0.2236068  0.         0.       ]
-             [ 0.         0.         0.2236068  0.       ]
-             [ 0.         0.         0.2236068  0.2236068]
-             [-0.2236068  0.         0.         0.       ]
-             [-0.2236068 -0.2236068  0.         0.       ]
-             [ 0.         0.        -0.2236068  0.       ]
-             [ 0.         0.        -0.2236068 -0.2236068]]
-            x [1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]
-            x[np.newaxis, :] [[1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]]
-            y [[-1.05007638e-16 -1.05007638e-16 -1.05007638e-16 -1.05007638e-16]
-             [ 2.23606798e-01 -1.05007638e-16 -1.05007638e-16 -1.05007638e-16]
-             [ 2.23606798e-01  2.23606798e-01 -1.05007638e-16 -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16  2.23606798e-01 -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16  2.23606798e-01  2.23606798e-01]
-             [-2.23606798e-01 -1.05007638e-16 -1.05007638e-16 -1.05007638e-16]
-             [-2.23606798e-01 -2.23606798e-01 -1.05007638e-16 -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16 -2.23606798e-01 -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16 -2.23606798e-01 -2.23606798e-01]]
-            np.diag(Wc) [[-76.01   0.     0.     0.     0.     0.     0.     0.     0.  ]
-             [  0.    10.     0.     0.     0.     0.     0.     0.     0.  ]
-             [  0.     0.    10.     0.     0.     0.     0.     0.     0.  ]
-             [  0.     0.     0.    10.     0.     0.     0.     0.     0.  ]
-             [  0.     0.     0.     0.    10.     0.     0.     0.     0.  ]
-             [  0.     0.     0.     0.     0.    10.     0.     0.     0.  ]
-             [  0.     0.     0.     0.     0.     0.    10.     0.     0.  ]
-             [  0.     0.     0.     0.     0.     0.     0.    10.     0.  ]
-             [  0.     0.     0.     0.     0.     0.     0.     0.    10.  ]]
-            np.dot(np.diag(Wc), y) [[ 7.98163058e-15  7.98163058e-15  7.98163058e-15  7.98163058e-15]
-             [ 2.23606798e+00 -1.05007638e-15 -1.05007638e-15 -1.05007638e-15]
-             [ 2.23606798e+00  2.23606798e+00 -1.05007638e-15 -1.05007638e-15]
-             [-1.05007638e-15 -1.05007638e-15  2.23606798e+00 -1.05007638e-15]
-             [-1.05007638e-15 -1.05007638e-15  2.23606798e+00  2.23606798e+00]
-             [-2.23606798e+00 -1.05007638e-15 -1.05007638e-15 -1.05007638e-15]
-             [-2.23606798e+00 -2.23606798e+00 -1.05007638e-15 -1.05007638e-15]
-             [-1.05007638e-15 -1.05007638e-15 -2.23606798e+00 -1.05007638e-15]
-             [-1.05007638e-15 -1.05007638e-15 -2.23606798e+00 -2.23606798e+00]]
-            yT [[-1.05007638e-16  2.23606798e-01  2.23606798e-01 -1.05007638e-16
-              -1.05007638e-16 -2.23606798e-01 -2.23606798e-01 -1.05007638e-16
-              -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16  2.23606798e-01 -1.05007638e-16
-              -1.05007638e-16 -1.05007638e-16 -2.23606798e-01 -1.05007638e-16
-              -1.05007638e-16]
-             [-1.05007638e-16 -1.05007638e-16 -1.05007638e-16  2.23606798e-01
-               2.23606798e-01 -1.05007638e-16 -1.05007638e-16 -2.23606798e-01
-              -2.23606798e-01]
-             [-1.05007638e-16 -1.05007638e-16 -1.05007638e-16 -1.05007638e-16
-               2.23606798e-01 -1.05007638e-16 -1.05007638e-16 -1.05007638e-16
-              -2.23606798e-01]]
-            P [[2.00000000e+00 1.00000000e+00 1.14670370e-31 1.14670370e-31]
-             [1.00000000e+00 1.00000000e+00 1.14670370e-31 1.14670370e-31]
-             [8.13388247e-32 8.13388247e-32 2.00000000e+00 1.00000000e+00]
-             [8.13388247e-32 8.13388247e-32 1.00000000e+00 1.00000000e+00]]
-            Wm[-79.  10.  10.  10.  10.  10.  10.  10.  10.]
-            Wc[-76.01  10.    10.    10.    10.    10.    10.    10.    10.  ]
-            xBar = [1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]
-            PBar = [[2.00500000e+00 1.01000000e+00 1.14670370e-31 1.14670370e-31]
-             [1.01000000e+00 1.02000000e+00 1.14670370e-31 1.14670370e-31]
-             [8.13388247e-32 8.13388247e-32 2.00500000e+00 1.01000000e+00]
-             [8.13388247e-32 8.13388247e-32 1.01000000e+00 1.02000000e+00]
-             */
+            int rowSize = pBar_1.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(pBar_1.GetRow(i), Pbar.GetRow(i).Select(p => Math.Round(p, 3)));
+            }
         }
 
         [Test]
         public void UnscentedKalman_TransitionSigmas_SigmasCorrectlyTransformed() {
             UnscentedKalman UKF = new UnscentedKalman();
+            var stateTransition = new StateTransitionModel(F_1);
+            Matrix actualSigmas = UKF.TransitionSigmas(stateTransition, X_1);
 
-            Matrix F = new Matrix(4, 4);
-            F.SetRow(0, new double[] { 1, 1, 0, 0 });
-            F.SetRow(1, new double[] { 0, 1, 0, 0 });
-            F.SetRow(2, new double[] { 0, 0, 1, 1 });
-            F.SetRow(3, new double[] { 0, 0, 0, 1 });
-            var stateTransition = new StateTransitionModel(F);
-
-            Matrix x = new Matrix(9, 4);
-            x.SetRow(0, new double[] { 0, 0, 0, 0 });
-            x.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            x.SetRow(2, new double[] { 0, 0.2236068, 0, 0 });
-            x.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            x.SetRow(4, new double[] { 0, 0, 0, 0.2236068 });
-            x.SetRow(5, new double[] { 0.2236068, 0, 0, 0 });
-            x.SetRow(6, new double[] { 0, 0.2236068, 0, 0 });
-            x.SetRow(7, new double[] { 0, 0, 0.2236068, 0 });
-            x.SetRow(8, new double[] { 0, 0, 0, 0.2236068 });
-
-            Matrix expectedSigmas = new Matrix(9, 4);
-            expectedSigmas.SetRow(0, new double[] { 0, 0, 0, 0 });
-            expectedSigmas.SetRow(1, new double[] { 0.2236068, 0, 0, 0 });
-            expectedSigmas.SetRow(2, new double[] { 0.2236068, 0.2236068, 0, 0 });
-            expectedSigmas.SetRow(3, new double[] { 0, 0, 0.2236068, 0 });
-            expectedSigmas.SetRow(4, new double[] { 0, 0, 0.2236068, 0.2236068 });
-            expectedSigmas.SetRow(5, new double[] { -0.2236068, 0, 0, 0 });
-            expectedSigmas.SetRow(6, new double[] { -0.2236068, -0.2236068, 0, 0 });
-            expectedSigmas.SetRow(7, new double[] { 0, 0, -0.2236068, 0 });
-            expectedSigmas.SetRow(8, new double[] { 0, 0, -0.2236068, -0.2236068 });
-
-            Matrix actualSigmas = UKF.TransitionSigmas(stateTransition, x);
-
-            for (int i = 0; i < x.GetRow(0).Length; i++) {
-                Assert.AreEqual(expectedSigmas.GetRow(i), actualSigmas.GetRow(i).Select(s => Math.Round(s, 7)));
+            for (int i = 0; i < X_1.GetRow(0).Length; i++) {
+                Assert.AreEqual(Y_1.GetRow(i), actualSigmas.GetRow(i).Select(s => Math.Round(s, 7)));
             }
         }
 
-        /*
-        mean = [0. 0. 0. 0.]
-        P = [[1. 0. 0. 0.]
-         [0. 1. 0. 0.]
-         [0. 0. 1. 0.]
-         [0. 0. 0. 1.]]
-        x
-        [[ 0.         0.         0.         0.       ]
-         [ 0.2236068  0.         0.         0.       ]
-         [ 0.         0.2236068  0.         0.       ]
-         [ 0.         0.         0.2236068  0.       ]
-         [ 0.         0.         0.         0.2236068]
-         [-0.2236068  0.         0.         0.       ]
-         [ 0.        -0.2236068  0.         0.       ]
-         [ 0.         0.        -0.2236068  0.       ]
-         [ 0.         0.         0.        -0.2236068]]
-        Y
-        [[ 0.         0.         0.         0.       ]
-         [ 0.2236068  0.         0.         0.       ]
-         [ 0.2236068  0.2236068  0.         0.       ]
-         [ 0.         0.         0.2236068  0.       ]
-         [ 0.         0.         0.2236068  0.2236068]
-         [-0.2236068  0.         0.         0.       ]
-         [-0.2236068 -0.2236068  0.         0.       ]
-         [ 0.         0.        -0.2236068  0.       ]
-         [ 0.         0.        -0.2236068 -0.2236068]]
-        Wm
-        [-79.  10.  10.  10.  10.  10.  10.  10.  10.]
-        Wc
-        [-76.01  10.    10.    10.    10.    10.    10.    10.    10.  ]
-        xBar = [1.05007638e-16 1.05007638e-16 1.05007638e-16 1.05007638e-16]
-        PBar = [[2.00500000e+00 1.01000000e+00 1.14670370e-31 1.14670370e-31]
-         [1.01000000e+00 1.02000000e+00 1.14670370e-31 1.14670370e-31]
-         [8.13388247e-32 8.13388247e-32 2.00500000e+00 1.01000000e+00]
-         [8.13388247e-32 8.13388247e-32 1.01000000e+00 1.02000000e+00]]
-         */
         [Test]
         public void UnscentedKalman_GetWeightedSigmas_SigmasCorrectlyWeighted() {
-            var meanWeights = new List<double>() { -79, 10, 10, 10, 10, 10, 10, 10, 10 };
+            var meanWeights_1 = new List<double>() { -79, 10, 10, 10, 10, 10, 10, 10, 10 };
             var sigmasY = new Matrix(9, 4);
             sigmasY.SetRow(0, new double[] { 0.43062201, 0.14354067, 0.43062201, 0.14354067 });
             sigmasY.SetRow(1, new double[] { 0.53742725, 0.18284613, 0.43062201, 0.14354067 });
@@ -380,57 +191,14 @@ namespace KalmanFilter.Test
             sigmasY.SetRow(8, new double[] { 0.43062201, 0.14354067, 0.27083579,-0.01624555 });
 
             UnscentedKalman UKF = new UnscentedKalman();
-            List<double> actualSigmas = UKF.GetWeightedSigmas(meanWeights, sigmasY);
+            List<double> actualSigmas = UKF.GetWeightedSigmas(meanWeights_1, sigmasY);
             var expectedSigmas = new double[] { 0.43062201, 0.14354067, 0.43062201, 0.14354067 };
             Assert.AreEqual(    expectedSigmas, actualSigmas.Select(s => Math.Round(s,8))   );
         }
-        /*
-        mean = [0.28708134 0.14354067 0.28708134 0.14354067]
-        P = [[ 9.11244019e-02  5.30622010e-02  1.62456105e-32 -7.60840380e-32]
-         [ 5.30622010e-02  5.41531100e-01  1.82773143e-32 -4.29717191e-33]
-         [-1.70859351e-32 -1.50542313e-32  9.11244019e-02  5.30622010e-02]
-         [-1.09415584e-31 -3.76287175e-32  5.30622010e-02  5.41531100e-01]]
-        x
-        [[ 0.28708134  0.14354067  0.28708134  0.14354067]
-         [ 0.35458112  0.18284613  0.28708134  0.14354067]
-         [ 0.28708134  0.30332689  0.28708134  0.14354067]
-         [ 0.28708134  0.14354067  0.35458112  0.18284613]
-         [ 0.28708134  0.14354067  0.28708134  0.30332689]
-         [ 0.21958156  0.10423521  0.28708134  0.14354067]
-         [ 0.28708134 -0.01624555  0.28708134  0.14354067]
-         [ 0.28708134  0.14354067  0.21958156  0.10423521]
-         [ 0.28708134  0.14354067  0.28708134 -0.01624555]]
-        args
-        {}
-        Y
-        [[ 0.43062201  0.14354067  0.43062201  0.14354067]
-         [ 0.53742725  0.18284613  0.43062201  0.14354067]
-         [ 0.59040823  0.30332689  0.43062201  0.14354067]
-         [ 0.43062201  0.14354067  0.53742725  0.18284613]
-         [ 0.43062201  0.14354067  0.59040823  0.30332689]
-         [ 0.32381677  0.10423521  0.43062201  0.14354067]
-         [ 0.27083579 -0.01624555  0.43062201  0.14354067]
-         [ 0.43062201  0.14354067  0.32381677  0.10423521]
-         [ 0.43062201  0.14354067  0.27083579 -0.01624555]]
-        Wm[-79.  10.  10.  10.  10.  10.  10.  10.  10.]
-        Wc[-76.01  10.    10.    10.    10.    10.    10.    10.    10.  ]
-        xBar = [0.43062201 0.14354067 0.43062201 0.14354067]
-        PBar = [[ 7.43779904e-01  6.04593301e-01  5.00926675e-29 -1.81438008e-29]
-         [ 6.04593301e-01  5.61531100e-01 -9.13353017e-30  3.67313359e-30]
-         [ 5.25241290e-29 -9.43866348e-30  7.43779904e-01  6.04593301e-01]
-         [-1.72900611e-29  3.36800028e-30  6.04593301e-01  5.61531100e-01]]
-         */
-
 
         [Test]
         public void StateTransitionModel_Next_CorrectStateValues() {
-            Matrix F = new Matrix(4, 4);
-            F.SetRow(0, new double[] { 1, 1, 0, 0 });
-            F.SetRow(1, new double[] { 0, 1, 0, 0 });
-            F.SetRow(2, new double[] { 0, 0, 1, 1 });
-            F.SetRow(3, new double[] { 0, 0, 0, 1 });
-            StateTransitionModel model = new StateTransitionModel(F);
-
+            StateTransitionModel model = new StateTransitionModel(F_1);
             var state = new List<double>() { 5, 7, 11, 13 };
             List<double> newState = model.Next(state);
             Assert.AreEqual(new List<double> { 12, 7, 24, 13}, newState);
