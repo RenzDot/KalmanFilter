@@ -105,6 +105,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Matrices\Matrices\Matrices.csproj">
+      <Project>{f51a5e12-77a3-454d-b968-369ef390374f}</Project>
+      <Name>Matrices</Name>
+    </ProjectReference>
     <ProjectReference Include="..\KalmanFilter\KalmanFilter.csproj">
       <Project>{39c58148-fd84-4fb5-b2c9-d9c9fb550126}</Project>
       <Name>KalmanFilter</Name>
