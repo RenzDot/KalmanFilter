@@ -9,7 +9,7 @@ namespace KalmanFilter.Test
     public class Tests {
 
         List<double> xBar_1, Uz_1, posteriorX_1, meanWeight_1, covarianceWeight_1, measurementZ_1;
-        Matrix X_1, Y_1, Q_1, F_1, pBar_1, zeta_1, residualY_1, Pz_1, Pxz_1, K_1, posteriorP_1;
+        Matrix X_1, Y_1, Q_1, R_1, F_1, pBar_1, zeta_1, residualY_1, Pz_1, Pxz_1, K_1, posteriorP_1;
         int dp;
 
         /*
@@ -103,7 +103,34 @@ namespace KalmanFilter.Test
             Q_1.SetRow(1, new double[] { 0.01, 0.02, 0, 0 });
             Q_1.SetRow(2, new double[] { 0, 0, 0.005, 0.01 });
             Q_1.SetRow(3, new double[] { 0, 0, 0.01, 0.02 });
-        }   
+
+            R_1 = new Matrix(2, 2);
+            R_1.SetRow(0, new double[] { 0.09, 0 });
+            R_1.SetRow(1, new double[] { 0, 0.09 });
+        }
+
+        [Test]
+        public void MeasurementSpace_Next_PointsCorrectlyMappedToMeasurementSpace() {
+            var measurementSpace = new MeasurementSpace();
+            Matrix zeta = measurementSpace.Next(Y_1);
+            int rowSize = zeta.GetColumn(0).Length;
+            for (int i = 0; i < rowSize; i++) {
+                Assert.AreEqual(zeta_1.GetRow(i), zeta.GetRow(i).Select(z => Math.Round(z, 7)));
+            }
+        }
+
+        [Test]
+        public void UnscentedKalman_CreateInitialX_CorrectXValue() {
+            UnscentedKalman UKF = new UnscentedKalman();
+            var x = UKF.CreateInitialX(new List<double>() { 1, 2, 3 });
+            /*
+            [1,2,3]
+            [0,0,0,0,0,0]
+            [1,0,0,0,0,0]
+            [1,0,2,0,3,0]
+            */
+            Assert.AreEqual(new double[] { 1, 0, 2, 0, 3, 0 }, x);
+        }
 
         [Test]
         public void UnscentedKalman_GetResidual_CorrectResidual() {

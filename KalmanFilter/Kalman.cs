@@ -26,11 +26,13 @@ namespace KalmanFilter
         }
 
         public Matrix Next(Matrix sigmas) {
-            int rowCount = sigmas.GetColumn(0).Length;
-            Matrix H = new Matrix(rowCount, 2);
-            for (int i = 0; i < rowCount; i++) {
-                H.Set(i, 0, sigmas.Get(i, 0));
-                H.Set(i, 2, sigmas.Get(i, 2));
+            int rowSize = sigmas.GetColumn(0).Length;
+            int colSize = (sigmas.GetRow(0).Length/2);
+            Matrix H = new Matrix(rowSize, colSize);
+            for (int i = 0; i < rowSize; i++) {
+                for (int j = 0; j < colSize; j++) {
+                    H.Set(i, j, sigmas.Get(i, j*2));
+                }
             }
             return H;
         }
@@ -56,103 +58,12 @@ namespace KalmanFilter
         List<double> GetCovarianceWeight();
     }
 
-    public class MerweScaledSigmaPoints : ISigmaPointGenerator
-    {
-        int n = 2;
-        double a = 0.3;// 0 to 1
-        double b = 2.0;// 
-        double k = 0;// (3 - n)
-        double lambda;
-        static readonly double million = 1000000;
-
-        public MerweScaledSigmaPoints() { }
-        public MerweScaledSigmaPoints(int dimension, double alpha, double beta, double kappa) {
-            n = dimension;  // Dimensionality of the state. 2n+1 weights will be generated
-            a = alpha;      // Determines spread of sigma points around mean
-            b = beta;       // Incorporation of prior mean distribution knowledge
-            k = kappa;      // Secondary scaling factor
-            lambda = a * a * (n + k) - n;
-        }
-        //Tests:
-        // 1x1 Matrcies produces 1x1 Matrix outputs
-        // n=1 => sigmas.length == 5
-        // All sigma points are within 1 standard deviation
-
-        public Matrix GetSigmaPoints(List<double> mean, Matrix covariance) {
-            if (mean.Count != n) {//Check mean has the correct dimension of n
-                throw new ArgumentOutOfRangeException("mean", $"expected mean to have {n} items, but it has {mean.Count}");
-            };
-
-            if (!covariance.IsSymmetric()) {
-                throw new ArgumentException("Covariance is not symmetric");
-            }
-
-            //Create Identity if P is 1x1
-            Matrix P = covariance;
-            if (covariance.GetRow(0).Length == 1 && covariance.GetColumn(0).Length == 1) {
-                P = CreateScaledIdentity(covariance.Get(0,0));
-            }
-
-            int sigmaCount = 2 * n + 1;
-            var sigmas = new Matrix(sigmaCount, n);
-            double lambda = (a * a) * (n + k) - n;
-            Matrix scaledP = P.Multiply(lambda * million + n * million).Multiply(1/million);
-            Matrix U = scaledP.Cholesky(true);
-
-            for (int i = 0; i < sigmaCount; i++) {
-                sigmas.SetRow(i, mean.ToArray());
-            }
-
-            for (int j = 0; j < sigmaCount/2; j++) {
-                var pointA = new List<double>(mean);
-                for (int k = 0; k < pointA.Count; k++) {
-                    pointA[k] = pointA[k] + U.GetRow(j)[k];
-                }
-                var pointB = new List<double>(mean);
-                for (int k = 0; k < pointB.Count; k++) {
-                    pointB[k] = pointB[k] - U.GetRow(j)[k];
-                }
-                sigmas.SetRow(j + 1, pointA.ToArray());
-                sigmas.SetRow(n + j + 1, pointB.ToArray());
-            }
-            return sigmas;
-        }
-
-        public List<double> GetMeanWeight() {
-            var meanWeight = new List<double>();
-            meanWeight.Add(lambda / (n + lambda));
-
-            double weight = 1 / (2 * (n + lambda));
-            for(int i = 0; i < (2 * n); i++ ) {
-                meanWeight.Add(weight);
-            }
-            return meanWeight;
-        }
-
-        public List<double> GetCovarianceWeight() {
-            var covarianceWeight = new List<double>();
-            covarianceWeight.Add(lambda / (n + lambda) + 1 - a * a + b);
-
-            double weight = 1 / (2 * (n + lambda));
-            for (int i = 0; i < (2 * n); i++) {
-                covarianceWeight.Add(weight);
-            }
-            return covarianceWeight;
-        }
-
-        public Matrix CreateScaledIdentity(double scalar) {
-            Matrix identity = new Matrix(n, n);
-            for (int i = 0; i < n; i++) {
-                identity.Set(i, i, scalar);
-            }
-            return identity;
-        }
-    }
+    
 
     public class UnscentedKalman : IKalman {
         Matrix Q, R, X, Y, Zeta, K;
-        Matrix P, Pz, Pxz, Pbar, residual_y, P_posterior;
-        List<double> xPosterior, meanWeight, covarianceWeight, xBar, Uz;
+        Matrix P_Posterior, Pz, Pxz, P_Prior, residual_y, P_posterior;
+        List<double> xPosterior, meanWeight, covarianceWeight, xPrior, Uz;
         MeasurementSpace measurementSpace;
         ISigmaPointGenerator sigmaGenerator;
         StateTransitionModel stateTransitionModel;
@@ -160,7 +71,8 @@ namespace KalmanFilter
         public UnscentedKalman() { }
 
         public UnscentedKalman(
-                List<double> mean, Matrix covariance,
+                List<double> initialMean, 
+                Matrix initialCovariance,
                 ISigmaPointGenerator sigmaPointGenerator,
                 StateTransitionModel stateTransitionModel_F,
                 MeasurementSpace measurementSpace_H,
@@ -168,16 +80,24 @@ namespace KalmanFilter
                 Matrix Noise_R
             ) {
             this.sigmaGenerator = sigmaPointGenerator;
-            this.P = covariance;
+            meanWeight = this.sigmaGenerator.GetMeanWeight();
+            covarianceWeight = this.sigmaGenerator.GetCovarianceWeight();
+            this.P_Posterior = initialCovariance;
             this.stateTransitionModel = stateTransitionModel_F;
             this.measurementSpace = measurementSpace_H;
             Q = processNoiseCovariance_Q;
             R = Noise_R;
-            meanWeight = this.sigmaGenerator.GetMeanWeight();
-            covarianceWeight = this.sigmaGenerator.GetCovarianceWeight();
+
+            xPosterior = CreateInitialX(initialMean);
         }
 
-        public void Predict() { }
+        public List<double> CreateInitialX(List<double> x) {
+            double[] mean = new double[x.Count * 2];;
+            for (int i = 0; i < x.Count; i++) {
+                mean[i * 2] = x[i];
+            }
+            return mean.ToList();
+        }
 
         public List<double> GetWeightedSigmas(List<double> weights, Matrix y) {
             var xBar = new List<double>(new double[y.GetRow(0).Length]);
@@ -281,18 +201,17 @@ namespace KalmanFilter
             return y;
         }
 
-        public void Predict(List<double> mean, Matrix covariance, double timeStep) {
-            P = covariance;
-            X = sigmaGenerator.GetSigmaPoints(mean, P);
+        public void Predict() {
+            X = sigmaGenerator.GetSigmaPoints(xPosterior, P_Posterior);
 
             // Y = f(x)
             Y = TransitionSigmas(stateTransitionModel, X);
 
             // xBar = Sum(wM * Y)
-            xBar = GetWeightedSigmas(meanWeight, Y);
+            xPrior = GetWeightedSigmas(meanWeight, Y);
 
             // _P = Sum(    wC(Y - _x)*(Y - _x) + Q   )
-            Pbar = GetWeightedCovariance(Y, xBar, covarianceWeight).Add(Q);
+            P_Prior = GetWeightedCovariance(Y, xPrior, covarianceWeight).Add(Q);
         }
 
         public void Update(double[] measurement) {
@@ -307,18 +226,22 @@ namespace KalmanFilter
 
             // Pz = Sum(    wC*(Z - uZ)*Transpose(Z - uZ)  + R  )
             Pz = GetWeightedCovariance(Zeta, Uz, covarianceWeight).Add(R);
-            Pxz = GetCrossVariance(xBar, Uz, covarianceWeight, Y, Zeta);
+            Pxz = GetCrossVariance(xPrior, Uz, covarianceWeight, Y, Zeta);
             K = GetKalmanGain(Pxz, Pz);
 
             // x = _x + K*y
-            xPosterior = GetPosteriorX(xBar, K, residual_y);
+            xPosterior = GetPosteriorX(xPrior, K, residual_y);
 
             // P = P - K*Pz*Transpose(K)
-            P_posterior = GetPosteriorP(P, Pz, K);
+            P_Posterior = GetPosteriorP(P_Prior, Pz, K);
         }
 
         public void UnscentedTransform() {
 
+        }
+
+        public double[] GetArrayPos() {
+            return xPosterior.ToArray();
         }
 
         public double GetPos() {
@@ -327,6 +250,95 @@ namespace KalmanFilter
 
         public double GetVel() {
             throw new NotImplementedException();
+        }
+    }
+
+    public class MerweScaledSigmaPoints : ISigmaPointGenerator
+    {
+        int n = 2;
+        double a = 0.3;// 0 to 1
+        double b = 2.0;// 
+        double k = 0;// (3 - n)
+        double lambda;
+        static readonly double million = 1000000;
+
+        public MerweScaledSigmaPoints() { }
+        public MerweScaledSigmaPoints(int dimension, double alpha, double beta, double kappa) {
+            n = dimension;  // Dimensionality of the state. 2n+1 weights will be generated
+            a = alpha;      // Determines spread of sigma points around mean
+            b = beta;       // Incorporation of prior mean distribution knowledge
+            k = kappa;      // Secondary scaling factor
+            lambda = a * a * (n + k) - n;
+        }
+        //Tests:
+        // 1x1 Matrcies produces 1x1 Matrix outputs
+        // n=1 => sigmas.length == 5
+        // All sigma points are within 1 standard deviation
+
+        public Matrix GetSigmaPoints(List<double> mean, Matrix covariance) {
+            if (!covariance.IsSymmetric()) {
+                throw new ArgumentException("Covariance is not symmetric");
+            }
+
+            //Create Identity if P is 1x1
+            Matrix P = covariance;
+            if (covariance.GetRow(0).Length == 1 && covariance.GetColumn(0).Length == 1) {
+                P = CreateScaledIdentity(covariance.Get(0, 0));
+            }
+
+            int sigmaCount = 2 * n + 1;
+            var sigmas = new Matrix(sigmaCount, n);
+            double lambda = (a * a) * (n + k) - n;
+            Matrix scaledP = P.Multiply(lambda * million + n * million).Multiply(1 / million);
+            Matrix U = scaledP.Cholesky(true);
+
+            for (int i = 0; i < sigmaCount; i++) {
+                sigmas.SetRow(i, mean.ToArray());
+            }
+
+            for (int j = 0; j < sigmaCount / 2; j++) {
+                var pointA = new List<double>(mean);
+                for (int k = 0; k < pointA.Count; k++) {
+                    pointA[k] = pointA[k] + U.GetRow(j)[k];
+                }
+                var pointB = new List<double>(mean);
+                for (int k = 0; k < pointB.Count; k++) {
+                    pointB[k] = pointB[k] - U.GetRow(j)[k];
+                }
+                sigmas.SetRow(j + 1, pointA.ToArray());
+                sigmas.SetRow(n + j + 1, pointB.ToArray());
+            }
+            return sigmas;
+        }
+
+        public List<double> GetMeanWeight() {
+            var meanWeight = new List<double>();
+            meanWeight.Add(lambda / (n + lambda));
+
+            double weight = 1 / (2 * (n + lambda));
+            for (int i = 0; i < (2 * n); i++) {
+                meanWeight.Add(weight);
+            }
+            return meanWeight;
+        }
+
+        public List<double> GetCovarianceWeight() {
+            var covarianceWeight = new List<double>();
+            covarianceWeight.Add(lambda / (n + lambda) + 1 - a * a + b);
+
+            double weight = 1 / (2 * (n + lambda));
+            for (int i = 0; i < (2 * n); i++) {
+                covarianceWeight.Add(weight);
+            }
+            return covarianceWeight;
+        }
+
+        public Matrix CreateScaledIdentity(double scalar) {
+            Matrix identity = new Matrix(n, n);
+            for (int i = 0; i < n; i++) {
+                identity.Set(i, i, scalar);
+            }
+            return identity;
         }
     }
 
