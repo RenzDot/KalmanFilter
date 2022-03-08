@@ -186,7 +186,8 @@ namespace KalmanFilter
         }
 
         public Matrix GetPosteriorP(Matrix covariance, Matrix weightedCovariance, Matrix kGain) {
-            return covariance.Subtract(kGain.Multiply(weightedCovariance.Multiply(kGain.Transpose()))); ;
+            Matrix P = covariance.Subtract(kGain.Multiply(weightedCovariance.Multiply(kGain.Transpose())));
+            return P.Multiply(P.Transpose()).Multiply(0.5);
         }
 
         public Matrix TransitionSigmas(StateTransitionModel transitionModelFx, Matrix sigmaPointsX) {
@@ -279,6 +280,12 @@ namespace KalmanFilter
             if (!covariance.IsSymmetric()) {
                 throw new ArgumentException("Covariance is not symmetric");
             }
+            /*
+            0.085226597003725035 0.074568888375718734                    0                    0
+            0.074568888375718845 0.134950783708109030                    0                    0
+                               0                    0 0.085226597003724591 0.074568888375718512
+                               0                    0 0.074568888375718623 0.134950783708108870
+            */
 
             //Create Identity if P is 1x1
             Matrix P = covariance;
