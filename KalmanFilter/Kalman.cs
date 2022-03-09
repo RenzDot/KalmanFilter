@@ -47,8 +47,7 @@ namespace KalmanFilter
             if (stateTransition.GetRow(0).Length != state.Count) { throw new ArgumentException($"Expected number of states to be {stateTransition.GetRow(0).Length}, but is instead {state.Count}"); }
             Matrix X = new Matrix(1, state.Count);
             X.SetRow(0, state.ToArray());
-            X = X.Transpose();
-            return stateTransition.Multiply(X).Transpose().GetRow(0).ToList();
+            return stateTransition.Multiply(X.Transpose()).Transpose().GetRow(0).ToList();
         }
     }
 
@@ -62,7 +61,7 @@ namespace KalmanFilter
 
     public class UnscentedKalman : IKalman {
         Matrix Q, R, X, Y, Zeta, K;
-        Matrix P_Posterior, Pz, Pxz, P_Prior, residual_y, P_posterior;
+        Matrix P_Posterior, Pz, Pxz, P_Prior, residual_y;
         List<double> xPosterior, meanWeight, covarianceWeight, xPrior, Uz;
         MeasurementSpace measurementSpace;
         ISigmaPointGenerator sigmaGenerator;
@@ -147,12 +146,14 @@ namespace KalmanFilter
         }
 
         public Matrix GetWeightedCovariance(Matrix sigmas, List<double> weightedSigmas, List<double> covarianceWeight) {
-            Matrix y = sigmas;
             List<double> xBar = weightedSigmas;
             List<double> Wc = covarianceWeight;
+            int rowSize = sigmas.GetColumn(0).Length;
+            int colSize = sigmas.GetRow(0).Length;
+            Matrix y = new Matrix(rowSize, colSize);
 
-            for (int i = 0; i < y.GetColumn(0).Length; i++) {
-                y.SetRow(i, y.GetRow(i).Zip(xBar, (x1, x2) => x1 - x2 ).ToArray());
+            for (int i = 0; i < rowSize; i++) {
+                y.SetRow(i, sigmas.GetRow(i).Zip(xBar, (x1, x2) => x1 - x2 ).ToArray());
             }
 
             Matrix WcMatrix = new Matrix(Wc.Count, Wc.Count);
@@ -187,16 +188,17 @@ namespace KalmanFilter
 
         public Matrix GetPosteriorP(Matrix covariance, Matrix weightedCovariance, Matrix kGain) {
             Matrix P = covariance.Subtract(kGain.Multiply(weightedCovariance.Multiply(kGain.Transpose())));
-            return P.Multiply(P.Transpose()).Multiply(0.5);
+            return P.Add(P.Transpose()).Multiply(0.5);
         }
 
         public Matrix TransitionSigmas(StateTransitionModel transitionModelFx, Matrix sigmaPointsX) {
             int rowSize = sigmaPointsX.GetColumn(0).Length;
             int colSize = sigmaPointsX.GetRow(0).Length;
-            List<double> transformedSigmas;
+            List<double> transformedSigmas, sigmas;
             var y = new Matrix(rowSize, colSize);
             for (int i = 0; i < rowSize; i++) {
-                transformedSigmas = transitionModelFx.Next(sigmaPointsX.GetRow(i).ToList());
+                sigmas = sigmaPointsX.GetRow(i).ToList();
+                transformedSigmas = transitionModelFx.Next(sigmas);
                 y.SetRow(i, transformedSigmas.ToArray());
             }
             return y;
@@ -204,9 +206,10 @@ namespace KalmanFilter
 
         public void Predict() {
             X = sigmaGenerator.GetSigmaPoints(xPosterior, P_Posterior);
-
+            
             // Y = f(x)
             Y = TransitionSigmas(stateTransitionModel, X);
+            //xPosterior = [0.28708134 0.14354067 0.28708134 0.14354067]
 
             // xBar = Sum(wM * Y)
             xPrior = GetWeightedSigmas(meanWeight, Y);

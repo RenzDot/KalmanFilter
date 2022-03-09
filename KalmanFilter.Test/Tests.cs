@@ -226,9 +226,24 @@ namespace KalmanFilter.Test
         [Test]
         public void StateTransitionModel_Next_CorrectStateValues() {
             StateTransitionModel model = new StateTransitionModel(F_1);
-            var state = new List<double>() { 5, 7, 11, 13 };
-            List<double> newState = model.Next(state);
-            Assert.AreEqual(new List<double> { 12, 7, 24, 13}, newState);
+            var inputState = new List<double[]>() {};
+            inputState.Add(new double[] { 0, 0, 0, 0 });
+            inputState.Add(new double[] { 0.28708134, 0.14354067, 0.28708134, 0.14354067 });
+            inputState.Add(new double[] { 1.20559132, 0.76726034, 1.20559132, 0.76726034 });
+            inputState.Add(new double[] { 2.23589728, 0.95232822, 2.23589728, 0.91649124 });
+
+            var expectedState = new List<double[]>() {};
+            expectedState.Add(new double[] { 0, 0, 0, 0 });
+            expectedState.Add(new double[] { 0.43062201, 0.14354067, 0.43062201, 0.14354067 });
+            expectedState.Add(new double[] { 1.97285166, 0.76726034, 1.97285166, 0.76726034 });
+            expectedState.Add(new double[] { 3.1882255, 0.95232822, 3.15238852, 0.91649124 });
+
+            for (int i = 0; i < inputState.Count; i++) {
+                List<double> newState = model.Next(inputState[i].ToList());
+                Assert.AreEqual(expectedState[i], newState.Select(n=> Math.Round(n, 9)));
+            }
+            //List<double> newState = model.Next(state);
+            //Assert.AreEqual(new List<double> { 12, 7, 24, 13}, newState);
         }
 
         [Test]

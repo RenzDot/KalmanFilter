@@ -8,6 +8,7 @@ using System.Linq;
 using System.Windows.Forms;
 using RenzLibraries;
 using static System.Math;
+using LiveCharts.Defaults;
 
 namespace LiveChart
 {
@@ -78,19 +79,19 @@ namespace LiveChart
             var physicsModel = new StateTransitionModel(F);
             var measurementSpace = new MeasurementSpace();
 
-
             var UKF = new UnscentedKalman(raw[0].ToList(), P, sigmaPointGenerator, physicsModel, measurementSpace, Q, R);
-            var UKF_x = new List<double>() { };
+            var UKF_x = new List<double[]>() { };
             for (int i = 1; i < raw.Length; i++) {
                 double[] z = raw[i];
                 UKF.Predict();
                 UKF.Update(z);
-                UKF_x.Add(UKF.GetArrayPos().First());
+                UKF_x.Add(UKF.GetArrayPos());
             }
+            
+            FormPlot posPlot = PlotSeries("Unscented Kalman - x");
+            AddXYseries(posPlot, "Raw [x,y]", raw);
+            AddXYseries(posPlot, "UKF [x,y]", UKF_x.Select(r => new double[] { r[0], r[2]}).ToArray());
 
-            FormPlot xPlot = PlotSeries("Unscented Kalman - x");
-            AddSeries(xPlot, "raw x", raw.Select(x => x[0]).ToList());
-            AddSeries(xPlot, "ukf x", UKF_x);
         }
 
         public void Simulate_KalmanSimple(double[] raw) {
@@ -123,13 +124,31 @@ namespace LiveChart
             AddSeries(velPlot, "kf vel", kfVel.ToList());
         }
 
-
         public FormPlot PlotSeries(string plotName) {
             FormPlot formPlot = new FormPlot();
             formPlot.Text = plotName;
             formPlot.Show();
 
             return formPlot;
+        }
+
+        public void AddXYseries(FormPlot formPlot, string title, double[][] values) {
+            ChartValues<ObservablePoint> xyPoints = new ChartValues<ObservablePoint>();
+            for( int i = 0; i < values.Length; i++) {
+                xyPoints.Add(new ObservablePoint {
+                    X = values[i][0],
+                    Y = values[i][1]
+                });
+            }
+
+            LineSeries lineSeries = new LineSeries {
+                Title = title,
+                LineSmoothness = 0,
+                Values = xyPoints
+            };
+
+            formPlot.AddSeries(lineSeries);
+
         }
 
         public void AddSeries(FormPlot formPlot, string title, List<double> values) {
