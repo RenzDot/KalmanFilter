@@ -10,35 +10,33 @@ namespace KalmanFilter
     - Compare Unscented vs Standard Kalman on sin wave
     - Figure out inversion for any size matrix, instead of just 2x2 inversion
     */
-    public class Program
-    {
+    public class Program {
         // Uncomment the following line to resolve.
-        static void Main() {}
+        static void Main() { }
     }
 
     public interface ITransistion { }
 
-    public class MeasurementSpace: ITransistion
-    {
+    public class MeasurementSpace : ITransistion {
         Matrix measurementSpace;
         public MeasurementSpace() {
-            
+
         }
 
         public Matrix Next(Matrix sigmas) {
             int rowSize = sigmas.GetColumn(0).Length;
-            int colSize = (sigmas.GetRow(0).Length/2);
+            int colSize = (sigmas.GetRow(0).Length / 2);
             Matrix H = new Matrix(rowSize, colSize);
             for (int i = 0; i < rowSize; i++) {
                 for (int j = 0; j < colSize; j++) {
-                    H.Set(i, j, sigmas.Get(i, j*2));
+                    H.Set(i, j, sigmas.Get(i, j * 2));
                 }
             }
             return H;
         }
     }
 
-    public class StateTransitionModel: ITransistion {
+    public class StateTransitionModel : ITransistion {
         Matrix stateTransition;
         public StateTransitionModel(Matrix StateTransition) {
             stateTransition = StateTransition;
@@ -50,6 +48,39 @@ namespace KalmanFilter
             return stateTransition.Multiply(X.Transpose()).Transpose().GetRow(0).ToList();
         }
     }
+
+    /*
+    public class DiscreteWhiteNoiseQ {
+        Matrix Q;
+        public DiscreteWhiteNoiseQ(int dimensions, double dt) {
+            switch (dimensions) {
+                case 2:
+                    Q = new Matrix(2, 2);
+                    Q.SetRow(0, new double[] { 0.25 * Math.Pow(dt, 4), 0.5 * Math.Pow(dt, 3) });
+                    Q.SetRow(1, new double[] { 0.5 * Math.Pow(dt, 3), dt * dt });
+                    break;
+                case 3:
+                    Q = new Matrix(3, 3);
+                    Q.SetRow(0, new double[] { 0.25 * Math.Pow(dt, 4), 0.5 * Math.Pow(dt, 3), 0.5 * dt * dt });
+                    Q.SetRow(1, new double[] { 0.5 * Math.Pow(dt, 3), dt * dt, dt });
+                    Q.SetRow(2, new double[] { 0.5 * dt * dt, dt, 1 });
+                    break;
+                case 4:
+                    Q = new Matrix(4, 4);
+                    Q.SetRow(0, new double[] { Math.Pow(dt, 6) / 36, Math.Pow(dt, 5) / 12, Math.Pow(dt, 4) / 6, Math.Pow(dt, 3) / 6 });
+                    Q.SetRow(1, new double[] { Math.Pow(dt, 5) / 12, Math.Pow(dt, 4) / 4, Math.Pow(dt, 3) / 2, Math.Pow(dt, 2) / 2 });
+                    Q.SetRow(2, new double[] { Math.Pow(dt, 4) / 6, Math.Pow(dt, 3) / 2, Math.Pow(dt, 2), dt });
+                    Q.SetRow(3, new double[] { Math.Pow(dt, 3) / 6, Math.Pow(dt, 2) / 2, dt, 1.0 });
+                    break;
+                default:
+                    throw new ArgumentException("DiscreteWhiteNoiseQ must have a dimension value between 2 to 4");
+            }
+        }
+
+        public Matrix GetQ() {
+            return Q;
+        }
+    };*/
 
     public interface ISigmaPointGenerator {
         Matrix GetSigmaPoints(List<double> mean, Matrix covariance);

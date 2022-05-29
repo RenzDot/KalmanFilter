@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E3213383-B2C1-4F39-AADC-B1DC16E06E31}</ProjectGuid>
+    <ProjectGuid>{1B382448-AF38-407C-923A-2045A171618D}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>LiveChart</RootNamespace>
     <AssemblyName>LiveChart</AssemblyName>

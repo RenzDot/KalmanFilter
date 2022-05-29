@@ -1,5 +1,5 @@
 ﻿
-namespace LiveChart
+namespace Hamilton
 {
     partial class FormMenu
     {
@@ -39,13 +39,13 @@ namespace LiveChart
             this.button2.UseVisualStyleBackColor = true;
             this.button2.Click += new System.EventHandler(this.PlotGraphs_Click);
             // 
-            // Menu
+            // FormMenu
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(11F, 24F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(251, 148);
             this.Controls.Add(this.button2);
-            this.Name = "Menu";
+            this.Name = "FormMenu";
             this.Text = "Form1";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.ResumeLayout(false);

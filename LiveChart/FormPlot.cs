@@ -3,7 +3,7 @@ using LiveCharts.Wpf;
 using System.Windows.Media;
 using System.Windows.Forms;
 
-namespace LiveChart
+namespace Hamilton
 {
     public partial class FormPlot : Form
     {

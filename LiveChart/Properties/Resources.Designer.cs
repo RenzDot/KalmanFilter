@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace LiveChart.Properties {
+namespace Hamilton.Properties {
     using System;
     
     
